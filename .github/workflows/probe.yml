@@ -26,7 +26,7 @@ jobs:
           import yfinance as yf
           for n in (25, 150, 500):
               import pandas as pd
-              syms=pd.read_html(requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",headers=B,timeout=20).text)[0]["Symbol"].str.replace(".","-",regex=False).tolist()[:n]
+              import io; syms=pd.read_html(io.StringIO(requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",headers=B,timeout=20).text))[0]["Symbol"].str.replace(".","-",regex=False).tolist()[:n]
               s=time.time()
               try:
                   d=yf.download(syms,period="6mo",interval="1d",group_by="ticker",progress=False,threads=True)
