@@ -1,0 +1,20 @@
+name: debug-aaii
+on: workflow_dispatch
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q pandas requests xlrd
+      - run: |
+          python - <<'PY'
+          import io, requests, pandas as pd
+          H={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36","Accept":"*/*","Accept-Language":"en-US,en;q=0.9"}
+          r=requests.get("https://www.aaii.com/files/surveys/sentiment.xls",headers=H,timeout=30)
+          print("status",r.status_code,len(r.content),r.headers.get("content-type"))
+          x=pd.ExcelFile(io.BytesIO(r.content)); print("sheets",x.sheet_names)
+          for sh in x.sheet_names[:3]:
+              raw=pd.read_excel(x,sheet_name=sh,header=None)
+              print("== sheet",sh,raw.shape); print(raw.head(8).to_string(max_colwidth=22)); print("..."); print(raw.dropna(how="all").tail(6).to_string(max_colwidth=22))
+          PY
