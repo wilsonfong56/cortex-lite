@@ -1,0 +1,36 @@
+name: probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q yfinance requests pandas lxml
+      - name: Probe data sources from a GitHub runner
+        run: |
+          python - <<'PY'
+          import requests, time
+          B={"User-Agent":"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36","Accept":"application/json, */*","Accept-Language":"en-US,en;q=0.9"}
+          C=dict(B, **{"Referer":"https://www.cboe.com/","Origin":"https://www.cboe.com"})
+          def t(n,f):
+              try:
+                  r=f(); print(f"{n:34} {r.status_code} {len(r.content)//1024}KB", flush=True)
+              except Exception as e: print(f"{n:34} ERR {str(e)[:90]}", flush=True)
+          t("CNN fear&greed", lambda: requests.get("https://production.dataviz.cnn.io/index/fearandgreed/graphdata",headers=B,timeout=20))
+          t("CBOE options SPY (full headers)", lambda: requests.get("https://cdn.cboe.com/api/global/delayed_quotes/options/SPY.json",headers=C,timeout=30))
+          t("Wikipedia S&P 500", lambda: requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",headers=B,timeout=20))
+          t("AAII sentiment xls", lambda: requests.get("https://www.aaii.com/files/surveys/sentiment.xls",headers=B,timeout=20))
+          t("TradingView scanner", lambda: requests.post("https://scanner.tradingview.com/america/scan",json={"filter":[],"columns":["name","close"],"range":[0,3]},headers=B,timeout=20))
+          t("Yahoo chart API AAPL", lambda: requests.get("https://query1.finance.yahoo.com/v8/finance/chart/AAPL?range=6mo&interval=1d",headers=B,timeout=20))
+          import yfinance as yf
+          for n in (25, 150, 500):
+              import pandas as pd
+              syms=pd.read_html(requests.get("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",headers=B,timeout=20).text)[0]["Symbol"].str.replace(".","-",regex=False).tolist()[:n]
+              s=time.time()
+              try:
+                  d=yf.download(syms,period="6mo",interval="1d",group_by="ticker",progress=False,threads=True)
+                  ok=sum(1 for x in syms if x in d.columns.get_level_values(0) and d[x]["Close"].dropna().shape[0]>20)
+                  print(f"yfinance download {n:3} tickers: {ok}/{n} with data in {time.time()-s:.0f}s", flush=True)
+              except Exception as e: print(f"yfinance download {n} ERR {str(e)[:90]}", flush=True)
+          PY
