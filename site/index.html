@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2358a6ff'/%3E%3Cpath d='M8 22l5-7 4 4 7-10' fill='none' stroke='%230d1117' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cortex Lite: market screener and sentiment</title>
+<meta name="description" content="A free market screener and Fear &amp; Greed index. Results are rebuilt every weekday after the US market closes.">
+<style>
+  :root { --bg:#0d1117; --surface:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --accent:#58a6ff; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
+  body { display:flex; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+         background:var(--bg); color:var(--text); }
+  nav { width:220px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border);
+        display:flex; flex-direction:column; padding:18px 12px; }
+  .brand { padding:0 8px 16px; border-bottom:1px solid var(--border); margin-bottom:14px; }
+  .brand b { font-size:17px; letter-spacing:.2px; }
+  .brand span { display:block; font-size:12px; color:var(--muted); margin-top:3px; }
+  .sec { font-size:10px; font-weight:700; letter-spacing:1px; color:var(--muted); text-transform:uppercase; padding:0 8px; margin:6px 0; }
+  .item { display:block; width:100%; text-align:left; background:none; border:0; color:var(--muted);
+          font:inherit; font-size:14px; padding:9px 10px; border-radius:8px; cursor:pointer; }
+  .item:hover { background:#1c2330; color:var(--text); }
+  .item.active { background:#1f2a3d; color:var(--accent); }
+  .foot { margin-top:auto; padding:14px 8px 0; font-size:12px; color:var(--muted); line-height:1.6; border-top:1px solid var(--border); }
+  .foot a { color:var(--accent); text-decoration:none; }
+  .foot a:hover { text-decoration:underline; }
+  iframe { flex:1; border:0; width:100%; height:100%; background:var(--bg); }
+  @media (max-width: 720px) {
+    body { flex-direction:column; }
+    nav { width:100%; flex-direction:row; align-items:center; gap:6px; padding:8px 10px; border-right:0;
+          border-bottom:1px solid var(--border); overflow-x:auto; }
+    .brand { border:0; margin:0; padding:0 8px 0 0; white-space:nowrap; }
+    .brand span, .sec, .foot { display:none; }
+    .item { width:auto; white-space:nowrap; }
+  }
+</style>
+</head>
+<body>
+<nav>
+  <div class="brand"><b>Cortex Lite</b><span>Market tools, refreshed daily</span></div>
+  <div class="sec">Markets</div>
+  <button class="item" data-page="screener" data-src="screener.html">Screener</button>
+  <button class="item" data-page="fear-greed" data-src="fear_greed.html">Fear &amp; Greed</button>
+  <div class="foot">
+    Rebuilt every weekday after the US market closes. Not investment advice.<br>
+    <a href="https://github.com/wilsonfong56/cortex-lite" target="_blank" rel="noopener">Source on GitHub</a>
+  </div>
+</nav>
+<iframe id="frame" title="Cortex Lite tool"></iframe>
+<script>
+  var items = Array.from(document.querySelectorAll('.item'));
+  var frame = document.getElementById('frame');
+  function show(page) {
+    var item = items.find(function(i) { return i.dataset.page === page; }) || items[0];
+    items.forEach(function(i) { i.classList.toggle('active', i === item); });
+    if (frame.getAttribute('src') !== item.dataset.src) frame.src = item.dataset.src;
+    document.title = item.textContent + ' · Cortex Lite';
+  }
+  items.forEach(function(i) {
+    i.addEventListener('click', function() { location.hash = i.dataset.page; });
+  });
+  window.addEventListener('hashchange', function() { show(location.hash.slice(1)); });
+  show(location.hash.slice(1));
+</script>
+</body>
+</html>

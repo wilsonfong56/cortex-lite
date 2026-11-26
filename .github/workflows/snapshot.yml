@@ -1,0 +1,56 @@
+name: snapshot-and-deploy
+
+# Fetch fresh market data, rebuild the JSON the pages read, and publish the site to GitHub Pages.
+# If any data step fails, nothing is deployed and the previous snapshot stays online.
+on:
+  schedule:
+    - cron: "20 22 * * 1-5"   # 22:20 UTC on weekdays: after the 4pm ET close in both EST and EDT
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      # Yahoo sometimes throttles a burst of requests, so each step gets up to three attempts.
+      - name: Fear and Greed snapshot
+        run: |
+          python snapshot_fear_greed.py || { sleep 60; python snapshot_fear_greed.py; } || { sleep 180; python snapshot_fear_greed.py; }
+      - name: Screener snapshot and charts
+        env:
+          SCREENER_OHLCV_CACHE: "0"
+        run: |
+          python snapshot_screener.py || { sleep 90; python snapshot_screener.py; } || { sleep 240; python snapshot_screener.py; }
+      - name: Check the snapshot before publishing
+        run: |
+          ls -l site/data/*.json
+          test "$(ls site/data/charts | wc -l)" -ge 100
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
