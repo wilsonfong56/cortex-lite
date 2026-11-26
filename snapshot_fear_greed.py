@@ -103,20 +103,30 @@ def _try_cnn_fg():
     return None, None
 
 def _try_aaii():
+    """Latest AAII bull and bear percentages, plus the survey date.
+
+    The SENTIMENT sheet ends with yearly summary rows ("Count '25") whose Bullish column holds
+    counts such as 52, so only rows with a real date and fractions between 0 and 1 are used.
+    """
     try:
-        url = "https://www.aaii.com/files/surveys/sentiment.xls"
-        r = requests.get(url, timeout=25, headers=BROWSER_HEADERS)
-        if r.status_code == 200:
-            import io
-            df = pd.read_excel(io.BytesIO(r.content), skiprows=3)
-            df.columns = df.columns.str.strip()
-            last = df.dropna(subset=["Bullish"]).iloc[-1]
-            bull = round(float(last["Bullish"]) * 100, 1)
-            bear = round(float(last["Bearish"]) * 100, 1)
-            return bull, bear
+        r = requests.get("https://www.aaii.com/files/surveys/sentiment.xls", timeout=25, headers=BROWSER_HEADERS)
+        if r.status_code != 200:
+            return None, None, None
+        df = pd.read_excel(io.BytesIO(r.content), sheet_name="SENTIMENT", skiprows=3)
+        df.columns = df.columns.astype(str).str.strip()
+        df["_date"] = pd.to_datetime(df.iloc[:, 0], errors="coerce")
+        for col in ("Bullish", "Bearish"):
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        df = df.dropna(subset=["_date", "Bullish", "Bearish"])
+        df = df[(df["Bullish"] <= 1) & (df["Bearish"] <= 1)]
+        last = df.iloc[-1]
+        bull = round(float(last["Bullish"]) * 100, 1)
+        bear = round(float(last["Bearish"]) * 100, 1)
+        if bull + bear > 100:
+            return None, None, None
+        return bull, bear, last["_date"].strftime("%b %d")
     except Exception:
-        pass
-    return None, None
+        return None, None, None
 
 # ─── Category Scorers ─────────────────────────────────────────────────────────
 
@@ -631,10 +641,10 @@ def compute_index():
                 "color": "yellow",
             }
 
-    bull, bear = _try_aaii()
+    bull, bear, survey_date = _try_aaii()
     if bull is not None:
-        cards["aaii_bull"] = {"label": "AAII BULL", "value": f"{bull}%", "sub": "Weekly survey", "color": "green" if bull > 38 else "red"}
-        cards["aaii_bear"] = {"label": "AAII BEAR", "value": f"{bear}%", "sub": "Weekly survey", "color": "red" if bear > 35 else "green"}
+        cards["aaii_bull"] = {"label": "AAII BULL", "value": f"{bull}%", "sub": f"Survey of {survey_date}", "color": "green" if bull > 38 else "red"}
+        cards["aaii_bear"] = {"label": "AAII BEAR", "value": f"{bear}%", "sub": f"Survey of {survey_date}", "color": "red" if bear > 35 else "green"}
 
     cnn_score, cnn_rating = _try_cnn_fg()
     if cnn_score is not None:
